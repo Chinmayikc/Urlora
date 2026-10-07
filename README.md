@@ -65,7 +65,7 @@ The model artifact is intentionally absent until a real dataset is supplied and 
 ## Start the FastAPI backend
 
 ```powershell
-uvicorn backend.main:app --reload --port 8000
+uvicorn backend.main:api_app --reload --port 8000
 ```
 
 Endpoints:
@@ -89,7 +89,7 @@ The service-role key is read only by `backend/supabase_service.py`. If Supabase 
 
 ## Deployment
 
-The frontend can be deployed to Vercel or Netlify with `npm run build`, using `VITE_API_URL` to point to the deployed FastAPI service. Deploy the backend separately to Render, Railway, Fly.io, or another Python host with `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`, and configure `CORS_ORIGINS`, `MODEL_PATH`, and Supabase variables there. A live deployment cannot be completed from this repository alone without a supplied dataset/model and hosting credentials.
+The frontend can be deployed to Vercel or Netlify with `npm run build`, using `VITE_API_URL` to point to the deployed FastAPI service. The Vercel deployment uses `api/index.py` as its public function entrypoint; other hosts can run `uvicorn backend.main:api_app --host 0.0.0.0 --port $PORT` with `CORS_ORIGINS`, `MODEL_PATH`, and Supabase variables configured.
 
 ## Testing
 

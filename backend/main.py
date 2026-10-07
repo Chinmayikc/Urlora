@@ -23,10 +23,10 @@ except ModuleNotFoundError:  # Supports running uvicorn from inside backend/.
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 logger = logging.getLogger(__name__)
-app = FastAPI(title="Urlora API", version="1.0.0")
+api_app = FastAPI(title="Urlora API", version="1.0.0")
 
 origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
-app.add_middleware(
+api_app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
@@ -36,7 +36,7 @@ app.add_middleware(
 
 DIST_DIR = ROOT / "dist"
 if (DIST_DIR / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
+    api_app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
 
 
 class PredictRequest(BaseModel):
@@ -53,7 +53,7 @@ class PredictResponse(BaseModel):
     created_at: str
 
 
-@app.get("/", include_in_schema=False, response_model=None)
+@api_app.get("/", include_in_schema=False, response_model=None)
 def root() -> FileResponse | dict[str, str | bool]:
     index_file = DIST_DIR / "index.html"
     if index_file.exists():
@@ -65,13 +65,13 @@ def root() -> FileResponse | dict[str, str | bool]:
     }
 
 
-@app.get("/health")
+@api_app.get("/health")
 def health() -> dict[str, str | bool]:
     model_path = Path(os.getenv("MODEL_PATH", ROOT / "backend/ml/model/phishing_xgboost.pkl"))
     return {"status": "ok", "model_ready": model_path.exists()}
 
 
-@app.post("/predict", response_model=PredictResponse)
+@api_app.post("/predict", response_model=PredictResponse)
 def predict(payload: PredictRequest) -> PredictResponse:
     url = payload.url.strip()
     if not url:
