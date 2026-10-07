@@ -7,3 +7,7 @@ dist/
 .env
 
 .vercel
+
+# Downloaded training data is reproducible from data/README.md and should not be committed.
+data/raw/
+data/processed/

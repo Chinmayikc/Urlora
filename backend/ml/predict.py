@@ -22,8 +22,16 @@ def load_artifact() -> dict:
     path = Path(os.getenv("MODEL_PATH", DEFAULT_MODEL_PATH))
     if not path.exists():
         raise ModelNotReadyError("XGBoost model is not trained yet. Provide a labeled dataset and run backend/ml/train_model.py.")
-    artifact = joblib.load(path)
-    if not isinstance(artifact, dict) or "model" not in artifact:
+    try:
+        artifact = joblib.load(path)
+    except Exception as error:
+        raise ModelNotReadyError("XGBoost model artifact could not be loaded; retrain the model.") from error
+    if (
+        not isinstance(artifact, dict)
+        or "model" not in artifact
+        or artifact.get("feature_names") != FEATURE_NAMES
+        or not hasattr(artifact["model"], "predict_proba")
+    ):
         raise ModelNotReadyError("Model artifact is invalid; retrain the XGBoost model.")
     return artifact
 

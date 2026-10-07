@@ -30,8 +30,16 @@ def normalize_url(raw_url: str) -> str:
         raise ValueError("URL is too long; maximum length is 4096 characters.")
     if any(character.isspace() for character in url):
         raise ValueError("URL cannot contain whitespace.")
+    scheme_match = re.match(r"^([a-z][a-z\d+.-]*):", url, flags=re.IGNORECASE)
+    if scheme_match and scheme_match.group(1).lower() not in {"http", "https"}:
+        raise ValueError("Only HTTP and HTTPS URLs are supported.")
     candidate = url if re.match(r"^[a-z][a-z\d+.-]*://", url, flags=re.IGNORECASE) else f"http://{url}"
-    parsed = urlsplit(candidate)
+    try:
+        parsed = urlsplit(candidate)
+        # Accessing .port validates malformed port values that urlsplit otherwise leaves untouched.
+        parsed.port
+    except ValueError as error:
+        raise ValueError("Enter a valid URL with a hostname.") from error
     if not parsed.hostname:
         raise ValueError("Enter a valid URL with a hostname.")
     if parsed.scheme.lower() not in {"http", "https"}:

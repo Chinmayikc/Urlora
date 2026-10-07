@@ -14,9 +14,9 @@ export default function Home({ onNavigate, history }) {
       <div className="card-grid three">
         <article className="info-card"><ScanLine className="card-icon" /><h3>Scan before you click</h3><p>Paste any address into the Urlora scanner and get a clear first-pass risk readout.</p><button className="inline-link" onClick={() => onNavigate('scanner')}>Open scanner <ArrowUpRight size={14} /></button></article>
         <article className="info-card"><Fingerprint className="card-icon" /><h3>Understand the signal</h3><p>See the lexical clues behind a prediction instead of receiving a black-box label.</p><button className="inline-link" onClick={() => onNavigate('about')}>How it works <ArrowUpRight size={14} /></button></article>
-        <article className="info-card dark-card"><div className="eyebrow">LIVE STATUS</div><strong>Ready to screen</strong><p>Local demo scanner · no page visits · no third-party requests.</p></article>
+        <article className="info-card dark-card"><div className="eyebrow">LIVE STATUS</div><strong>Ready to screen</strong><p>Server-side XGBoost · no destination page visits.</p></article>
       </div>
-      <div className="metrics-row"><MetricCard label="Scans this session" value={history.length} /><MetricCard label="Signal families" value="04" /><MetricCard label="Models compared" value="03" accent /></div>
+      <div className="metrics-row"><MetricCard label="Scans this session" value={history.length} /><MetricCard label="Signal families" value="04" /><MetricCard label="Models compared" value="02" accent /></div>
     </section>
   </main>;
 }

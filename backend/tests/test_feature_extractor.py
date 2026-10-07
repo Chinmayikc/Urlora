@@ -16,7 +16,7 @@ def test_phishing_indicators_are_extracted():
     assert features["suspicious_keyword_count"] >= 3
 
 
-@pytest.mark.parametrize("value", ["", "not a url", "ftp://example.com", "https://"])
+@pytest.mark.parametrize("value", ["", "not a url", "ftp://example.com", "javascript:alert(1)", "http://example.com:bad", "https://"])
 def test_invalid_urls_are_rejected(value):
     with pytest.raises(ValueError):
         extract_url_features(value)

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import os
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
 try:
     from backend.ml.predict import ModelNotReadyError, predict_url
@@ -19,6 +21,8 @@ except ModuleNotFoundError:  # Supports running uvicorn from inside backend/.
 
 
 ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
+logger = logging.getLogger(__name__)
 app = FastAPI(title="Urlora API", version="1.0.0")
 
 origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()]
@@ -68,7 +72,7 @@ def health() -> dict[str, str | bool]:
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(payload: PredictRequest, x_user_id: str | None = Header(default=None)) -> PredictResponse:
+def predict(payload: PredictRequest) -> PredictResponse:
     url = payload.url.strip()
     if not url:
         raise HTTPException(status_code=422, detail="URL cannot be empty.")
@@ -80,5 +84,11 @@ def predict(payload: PredictRequest, x_user_id: str | None = Header(default=None
         raise HTTPException(status_code=422, detail=str(error)) from error
 
     response = PredictResponse(**result, created_at=datetime.now(timezone.utc).isoformat())
-    save_scan_if_configured(response.model_dump(), user_id=x_user_id)
+    try:
+        # Do not accept a caller-supplied user id. Associate rows only after
+        # Supabase Auth token verification is implemented on this API.
+        save_scan_if_configured(response.model_dump(), user_id=None)
+    except Exception:
+        # Persistence is optional; a database outage must not turn a valid model result into a 500.
+        logger.exception("Optional scan persistence failed")
     return response

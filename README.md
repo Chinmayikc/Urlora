@@ -13,6 +13,8 @@ Open the Vite address shown in the terminal, usually `http://localhost:5173`.
 
 The React frontend calls the FastAPI backend for predictions. The model stays on the server; the browser never receives the XGBoost artifact. Demo authentication and scan history are still stored in localStorage until Supabase Auth and the `url_scans` table are configured.
 
+For a deployed frontend, `VITE_API_URL` must point to a reachable deployed FastAPI service. Leaving it blank or pointing it at `localhost` from Vercel cannot work because `localhost` means the visitor's own computer. The API also requires a real trained artifact at `MODEL_PATH`; the repository intentionally does not include one.
+
 ## Architecture
 
 ```text
@@ -83,7 +85,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_TABLE=url_scans
 ```
 
-The service-role key is read only by `backend/supabase_service.py`. If Supabase is not configured, predictions still work and the optional persistence step is skipped.
+The service-role key is read only by `backend/supabase_service.py`. If Supabase is not configured, predictions still work and the optional persistence step is skipped. The current API deliberately stores `user_id` as null; do not reintroduce a client-supplied user-id header. Wire Supabase Auth JWT verification first, then pass the verified subject to persistence.
 
 ## Deployment
 
@@ -140,4 +142,4 @@ The Streamlit app now includes:
 - User Dashboard with session scan history, statistics, and CSV export
 - About / How it works page explaining the feature pipeline and product boundaries
 
-Authentication and scan history currently live in Streamlit session state. Add a database, password hashing, and persistent user storage before using these flows in production.
+The React demo account is intentionally not authentication: it accepts any password and stores only a profile in localStorage. Add Supabase Auth, pass a verified Supabase user ID from a server-validated token, and add authenticated read policies before using account history in production.

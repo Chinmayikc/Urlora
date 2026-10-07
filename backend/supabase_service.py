@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def save_scan_if_configured(result: dict[str, Any], user_id: str | None = None) -> None:
@@ -26,4 +29,4 @@ def save_scan_if_configured(result: dict[str, Any], user_id: str | None = None) 
         }).execute()
     except Exception:
         # Prediction should remain available if an optional analytics write fails.
-        return
+        logger.exception("Supabase scan insert failed")

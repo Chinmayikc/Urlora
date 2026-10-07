@@ -1,14 +1,42 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
 
-export async function predictUrl(url, userId) {
-  const response = await fetch(`${API_BASE_URL}/predict`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(userId ? { 'X-User-Id': userId } : {}),
-    },
-    body: JSON.stringify({ url }),
-  });
+function getApiBaseUrl() {
+  if (configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)) return configuredApiUrl;
+  if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    throw new Error('Urlora backend is not configured for this deployment. Set VITE_API_URL to the FastAPI service URL.');
+  }
+  return 'http://localhost:8000';
+}
+
+function validateUrl(rawUrl) {
+  const url = rawUrl.trim();
+  if (!url) throw new Error('Enter a URL to inspect.');
+  if (url.length > 4096) throw new Error('URL is too long; maximum length is 4096 characters.');
+  if (/\s/.test(url)) throw new Error('URL cannot contain whitespace.');
+  const schemeMatch = url.match(/^([a-z][a-z\d+.-]*):/i);
+  if (schemeMatch && !['http', 'https'].includes(schemeMatch[1].toLowerCase())) {
+    throw new Error('Only HTTP and HTTPS URLs are supported.');
+  }
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(url) ? url : `http://${url}`;
+  let parsed;
+  try { parsed = new URL(candidate); } catch { throw new Error('Enter a valid URL with a hostname.'); }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Only HTTP and HTTPS URLs are supported.');
+  if (!parsed.hostname) throw new Error('Enter a valid URL with a hostname.');
+  return url;
+}
+
+export async function predictUrl(url) {
+  const normalizedUrl = validateUrl(url);
+  let response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: normalizedUrl }),
+    });
+  } catch {
+    throw new Error('Unable to reach the Urlora backend. Check that the API is deployed and VITE_API_URL is correct.');
+  }
 
   let body;
   try {

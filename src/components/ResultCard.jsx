@@ -10,7 +10,7 @@ export default function ResultCard({ result, compact = false }) {
       <div className="result-url">{result.url}</div>
       <div className="result-layout">
         <div>
-          <div className="eyebrow">Random Forest verdict</div>
+          <div className="eyebrow">XGBoost verdict</div>
           <div className={phishing ? 'result-value danger' : 'result-value safe'}>{phishing ? <AlertTriangle size={25} /> : <CheckCircle2 size={25} />}{result.label}</div>
           <div className="risk-label">phishing risk · {(risk * 100).toFixed(1)}% · confidence {(confidence * 100).toFixed(1)}%</div>
           <div className="risk-meter"><div className={phishing ? 'risk-fill phishing' : 'risk-fill'} style={{ width: `${Math.max(4, risk * 100)}%` }} /></div>

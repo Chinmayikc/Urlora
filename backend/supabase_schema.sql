@@ -1,6 +1,6 @@
 create table if not exists public.url_scans (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid null,
+  user_id uuid null references auth.users(id) on delete set null,
   url text not null,
   prediction text not null check (prediction in ('Safe', 'Phishing')),
   confidence numeric not null check (confidence >= 0 and confidence <= 1),

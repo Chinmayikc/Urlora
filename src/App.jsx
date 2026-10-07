@@ -28,7 +28,9 @@ export default function App() {
     setScanError('');
     setIsScanning(true);
     try {
-      const result = normalizePrediction(await predictUrl(url, user?.id));
+      // The localStorage demo account is not a Supabase Auth identity. Do not send
+      // its fabricated id as a database foreign key until real auth is wired.
+      const result = normalizePrediction(await predictUrl(url));
       setLastResult(result);
       setHistory(saveScan(result));
       navigate('result');
