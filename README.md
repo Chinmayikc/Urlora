@@ -89,7 +89,7 @@ The service-role key is read only by `backend/supabase_service.py`. If Supabase 
 
 ## Deployment
 
-The frontend can be deployed to Vercel or Netlify with `npm run build`, using `VITE_API_URL` to point to the deployed FastAPI service. The Vercel deployment uses `api/index.py` as its public function entrypoint; other hosts can run `uvicorn backend.main:api_app --host 0.0.0.0 --port $PORT` with `CORS_ORIGINS`, `MODEL_PATH`, and Supabase variables configured.
+The frontend is deployed to Vercel with `npm run build`. Vercel serves `api/predict.js` and `api/health.js`, which evaluate the exported XGBoost tree model from `api/model.json` without bundling the heavy Python runtime. The full FastAPI backend remains available for other hosts with `uvicorn backend.main:api_app --host 0.0.0.0 --port $PORT`; configure `CORS_ORIGINS`, `MODEL_PATH`, and Supabase variables there.
 
 ## Testing
 
