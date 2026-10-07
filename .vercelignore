@@ -2,6 +2,9 @@
 # Keep the legacy Streamlit prototype and local training inputs out of the bundle.
 app.py
 requirements-streamlit.txt
+requirements.txt
+api/index.py
+backend/
 data/
 backend/tests/
 backend/ml/train_model.py
