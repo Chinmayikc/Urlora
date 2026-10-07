@@ -3,7 +3,7 @@ const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/
 function getApiBaseUrl() {
   if (configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)) return configuredApiUrl;
   if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-    throw new Error('Urlora backend is not configured for this deployment. Set VITE_API_URL to the FastAPI service URL.');
+    return '/api';
   }
   return 'http://localhost:8000';
 }
