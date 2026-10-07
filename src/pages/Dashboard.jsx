@@ -1,0 +1,11 @@
+import { Download, LogOut } from 'lucide-react';
+import MetricCard from '../components/MetricCard';
+import ResultCard from '../components/ResultCard';
+
+export default function Dashboard({ user, history, onNavigate, onSignOut }) {
+  if (!user) return <main className="shell page-content"><div className="empty-state"><h2>Your Urlora workspace</h2><p>Sign in or create an account to see scan history and statistics.</p><button className="primary-button" onClick={() => onNavigate('auth')}>Go to Login / Signup</button></div></main>;
+  const flagged = history.filter((item) => item.prediction === 1).length;
+  const averageRisk = history.length ? history.reduce((sum, item) => sum + item.risk, 0) / history.length : 0;
+  const csv = ['Time,URL,Verdict,Risk', ...history.map((item) => `${new Date(item.scannedAt).toLocaleString()},"${item.url.replaceAll('"', '""')}",${item.label},${(item.risk * 100).toFixed(1)}%`)].join('\n');
+  return <main className="shell page-content"><section className="dashboard-hero"><div className="eyebrow teal">⌁ {user.name.toUpperCase()} / PRIVATE WORKSPACE</div><h2>Your scan intelligence</h2><p>A session-level view of the URLs you have inspected with Urlora.</p></section><div className="metrics-row four"><MetricCard label="Total scans" value={history.length} /><MetricCard label="Likely safe" value={history.length - flagged} /><MetricCard label="Flagged" value={flagged} /><MetricCard label="Average risk" value={`${(averageRisk * 100).toFixed(1)}%`} accent /></div><div className="section-heading"><div><div className="eyebrow">SCAN HISTORY</div><h3>Recent inspections</h3></div><div className="button-row"><a className="secondary-button" href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`} download="urlora-scan-history.csv"><Download size={16} /> Download</a><button className="text-button" onClick={onSignOut}><LogOut size={15} /> Sign out</button></div></div>{history.length ? <div className="history-list">{history.map((item) => <ResultCard key={item.id} result={item} compact />)}</div> : <div className="empty-state compact"><h3>No scans yet</h3><p>Your inspected URLs will appear here.</p><button className="primary-button" onClick={() => onNavigate('scanner')}>Scan your first URL</button></div>}</main>;
+}
