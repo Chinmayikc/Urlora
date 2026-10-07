@@ -112,7 +112,7 @@ The app extracts lexical features from URLs, compares Logistic Regression, Decis
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-streamlit.txt
 streamlit run app.py
 ```
 
