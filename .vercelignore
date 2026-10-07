@@ -1,0 +1,12 @@
+# The deployed app uses api/index.py and the Vite build.
+# Keep the legacy Streamlit prototype and local training inputs out of the bundle.
+app.py
+requirements-streamlit.txt
+data/
+backend/tests/
+backend/ml/train_model.py
+backend/supabase_schema.sql
+node_modules/
+.venv/
+.pytest_cache/
+__pycache__/
