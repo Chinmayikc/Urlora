@@ -5,7 +5,9 @@ const model = JSON.parse(readFileSync(new URL('./model.json', import.meta.url), 
 const learner = model.learner;
 const booster = learner.gradient_booster.model;
 const featureNames = learner.feature_names;
-const trees = booster.trees.slice(0, Number(learner.attributes.best_iteration) + 1);
+const bestIteration = Number(learner.attributes?.best_iteration);
+const treeLimit = Number.isFinite(bestIteration) ? bestIteration + 1 : booster.trees.length;
+const trees = booster.trees.slice(0, treeLimit);
 const suspiciousKeywords = [
   'login', 'signin', 'verify', 'verification', 'secure', 'account', 'update',
   'password', 'bank', 'bonus', 'free', 'wallet', 'confirm', 'paypal',
@@ -119,7 +121,9 @@ function treeScore(tree, vector) {
 function predictUrl(rawUrl) {
   const { url, values } = extractFeatures(rawUrl);
   const vector = featureNames.map((name) => values[name]);
-  const baseScore = Number(learner.learner_model_param.base_score);
+  const rawBaseScore = learner.learner_model_param.base_score;
+  const baseScoreText = Array.isArray(rawBaseScore) ? rawBaseScore[0] : String(rawBaseScore).replace(/^\[|\]$/g, '');
+  const baseScore = Number(baseScoreText);
   let margin = Math.log(baseScore / (1 - baseScore));
   for (const tree of trees) margin += treeScore(tree, vector);
   const probability = 1 / (1 + Math.exp(-margin));

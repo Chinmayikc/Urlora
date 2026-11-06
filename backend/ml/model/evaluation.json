@@ -1,44 +1,49 @@
 {
   "xgboost": {
-    "accuracy": 0.995263,
-    "precision": 0.998746,
+    "accuracy": 0.994562,
+    "precision": 0.997095,
     "recall": 0.990151,
-    "f1": 0.99443,
-    "roc_auc": 0.997816,
+    "f1": 0.993611,
+    "roc_auc": 0.997699,
     "confusion_matrix": [
       [
-        26945,
-        25
+        26912,
+        58
       ],
       [
         198,
         19906
       ]
     ],
-    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.99      1.00      1.00     26970\n           1       1.00      0.99      0.99     20104\n\n    accuracy                           1.00     47074\n   macro avg       1.00      0.99      1.00     47074\nweighted avg       1.00      1.00      1.00     47074\n"
+    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.99      1.00      1.00     26970\n           1       1.00      0.99      0.99     20104\n\n    accuracy                           0.99     47074\n   macro avg       0.99      0.99      0.99     47074\nweighted avg       0.99      0.99      0.99     47074\n"
   },
   "random_forest_baseline": {
-    "accuracy": 0.995093,
-    "precision": 0.998495,
-    "recall": 0.990002,
-    "f1": 0.99423,
-    "roc_auc": 0.997037,
+    "accuracy": 0.994987,
+    "precision": 0.997895,
+    "recall": 0.99035,
+    "f1": 0.994108,
+    "roc_auc": 0.997146,
     "confusion_matrix": [
       [
-        26940,
-        30
+        26928,
+        42
       ],
       [
-        201,
-        19903
+        194,
+        19910
       ]
     ],
-    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.99      1.00      1.00     26970\n           1       1.00      0.99      0.99     20104\n\n    accuracy                           1.00     47074\n   macro avg       1.00      0.99      0.99     47074\nweighted avg       1.00      1.00      1.00     47074\n"
+    "classification_report": "              precision    recall  f1-score   support\n\n           0       0.99      1.00      1.00     26970\n           1       1.00      0.99      0.99     20104\n\n    accuracy                           0.99     47074\n   macro avg       1.00      0.99      0.99     47074\nweighted avg       1.00      0.99      0.99     47074\n"
   },
   "dataset": {
     "url_column": "url",
     "label_column": "label",
     "invalid_rows_removed": 4,
     "rows_used": 235366
+  },
+  "vercel_model": {
+    "path": "api\\model.json",
+    "feature_count": 20,
+    "tree_count": 500
   }
 }

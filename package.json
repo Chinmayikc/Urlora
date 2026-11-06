@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test api/runtime.test.js"
+    "test": "node --test api/runtime.test.js",
+    "model:train": "python -m backend.ml.train_model data/processed/phiusiil_urls.csv"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

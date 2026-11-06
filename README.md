@@ -58,9 +58,21 @@ pip install -r backend/requirements.txt
 python -m backend.ml.train_model .\path\to\labeled_urls.csv
 ```
 
-The script removes invalid rows, deduplicates URLs, uses a stratified holdout split, applies class weighting, trains XGBoost with a Random Forest baseline, and prints Accuracy, Precision, Recall, F1, ROC-AUC, a confusion matrix, and the classification report. It writes the model to `backend/ml/model/phishing_xgboost.pkl` and metrics to `backend/ml/model/evaluation.json`.
+The script removes invalid rows, deduplicates URLs, uses a stratified holdout split, applies class weighting, trains XGBoost with a Random Forest baseline, and prints Accuracy, Precision, Recall, F1, ROC-AUC, a confusion matrix, and the classification report. It writes the Python model to `backend/ml/model/phishing_xgboost.pkl`, metrics to `backend/ml/model/evaluation.json`, and the JSON booster used by the live Vercel runtime to `api/model.json`.
 
-The model artifact is intentionally absent until a real dataset is supplied and training succeeds.
+To retrain the live detector from the included processed dataset:
+
+```powershell
+npm run model:train
+npm test
+npm run build
+```
+
+Commit the regenerated model artifacts and deploy after the checks pass. The
+Vercel runtime handles XGBoost exports with or without `best_iteration` metadata
+and validates the canonical 20-feature order before serving predictions.
+
+The checked-in artifacts are generated from the included processed dataset; regenerate them with `npm run model:train` whenever the dataset or feature extractor changes.
 
 ## Start the FastAPI backend
 

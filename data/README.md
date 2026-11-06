@@ -15,7 +15,7 @@ The archive is kept under `data/raw/` and the two-column converted file under
 `data/processed/`; both are gitignored. The training command was:
 
 ```powershell
-python -m backend.ml.train_model data/processed/phiusiil_urls.csv --output backend/ml/model/phishing_xgboost.pkl
+python -m backend.ml.train_model data/processed/phiusiil_urls.csv --output backend/ml/model/phishing_xgboost.pkl --vercel-output api/model.json
 ```
 
 The model uses only the raw URL column and Urlora's shared lexical feature
@@ -25,3 +25,8 @@ domains (`example.com`, GitHub, Python.org, NASA, Apple, BBC, and Mozilla) is
 reported as `known_safe_domain` to prevent obvious lexical false positives; this
 is not an allowlist guarantee. Query credentials and tokens are redacted before
 results are displayed or persisted.
+
+That command writes both live model artifacts: the Python joblib file used by
+FastAPI and the XGBoost JSON booster consumed by `api/runtime.js` on Vercel.
+After changing either the dataset or feature extractor, run the command, run
+the tests, commit both artifacts, and deploy again.

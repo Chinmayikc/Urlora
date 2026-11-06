@@ -16,6 +16,8 @@ from .feature_extractor import FEATURE_NAMES, extract_url_features
 
 URL_COLUMNS = ("url", "link", "website", "address", "uri")
 LABEL_COLUMNS = ("label", "type", "class", "status", "result", "target", "is_phishing")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_VERCEL_MODEL_PATH = REPOSITORY_ROOT / "api" / "model.json"
 
 
 def find_column(columns: list[str], candidates: tuple[str, ...]) -> str | None:
@@ -84,7 +86,19 @@ def evaluate_model(model, X_test, y_test) -> dict:
     }
 
 
-def train(dataset_path: Path, output_path: Path) -> dict:
+def export_vercel_model(model: XGBClassifier, output_path: Path) -> dict[str, str | int]:
+    """Export the trained XGBoost booster in the JSON consumed by api/runtime.js."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    booster = model.get_booster()
+    booster.save_model(output_path)
+    exported = json.loads(output_path.read_text(encoding="utf-8"))
+    exported_features = exported.get("learner", {}).get("feature_names")
+    if exported_features != FEATURE_NAMES:
+        raise ValueError("Exported Vercel model features do not match the canonical feature extractor.")
+    return {"path": str(output_path), "feature_count": len(exported_features), "tree_count": len(exported["learner"]["gradient_booster"]["model"]["trees"])}
+
+
+def train(dataset_path: Path, output_path: Path, vercel_output: Path = DEFAULT_VERCEL_MODEL_PATH) -> dict:
     data, dataset_metadata = load_labeled_dataset(dataset_path)
     features = pd.DataFrame([extract_url_features(url) for url in data["url"]], columns=FEATURE_NAMES)
     X_train, X_test, y_train, y_test = train_test_split(features, data["label"], test_size=0.2, random_state=42, stratify=data["label"])
@@ -106,9 +120,11 @@ def train(dataset_path: Path, output_path: Path) -> dict:
     baseline_metrics = evaluate_model(baseline, X_test, y_test)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump({"model": model, "feature_names": FEATURE_NAMES, "dataset_metadata": dataset_metadata, "metrics": metrics}, output_path)
+    vercel_metadata = export_vercel_model(model, vercel_output)
     metrics_path = output_path.with_name("evaluation.json")
-    metrics_path.write_text(json.dumps({"xgboost": metrics, "random_forest_baseline": baseline_metrics, "dataset": dataset_metadata}, indent=2), encoding="utf-8")
-    print(json.dumps({"xgboost": metrics, "random_forest_baseline": baseline_metrics, "dataset": dataset_metadata}, indent=2))
+    report = {"xgboost": metrics, "random_forest_baseline": baseline_metrics, "dataset": dataset_metadata, "vercel_model": vercel_metadata}
+    metrics_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
     return metrics
 
 
@@ -116,5 +132,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Urlora's XGBoost phishing URL classifier.")
     parser.add_argument("dataset", type=Path, help="Path to a labeled CSV dataset")
     parser.add_argument("--output", type=Path, default=Path("backend/ml/model/phishing_xgboost.pkl"))
+    parser.add_argument("--vercel-output", type=Path, default=DEFAULT_VERCEL_MODEL_PATH, help="Path for the JSON model consumed by the Vercel runtime")
     args = parser.parse_args()
-    train(args.dataset, args.output)
+    train(args.dataset, args.output, args.vercel_output)
