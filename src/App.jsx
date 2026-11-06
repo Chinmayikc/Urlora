@@ -32,7 +32,7 @@ export default function App() {
       // its fabricated id as a database foreign key until real auth is wired.
       const result = normalizePrediction(await predictUrl(url));
       setLastResult(result);
-      setHistory(saveScan(result));
+      setHistory(user ? saveScan(result) : [result, ...history].slice(0, 50));
       navigate('result');
     } catch (error) {
       setScanError(error.message);
@@ -49,12 +49,15 @@ export default function App() {
   function handleAuth(nextUser) {
     const saved = saveUser({ ...nextUser, id: nextUser.id || crypto.randomUUID?.() || `${Date.now()}` });
     setUser(saved);
+    setHistory(getScanHistory());
     navigate('dashboard');
   }
 
   function handleSignOut() {
     clearUser();
     setUser(null);
+    setHistory([]);
+    setLastResult(null);
     navigate('home');
   }
 
@@ -67,5 +70,5 @@ export default function App() {
     about: <About />,
   }[page];
 
-  return <div className="app-shell"><Header page={page} onNavigate={navigate} onScanRequest={handleHeaderScan} user={user} />{content}<Footer /></div>;
+  return <div className="app-shell"><Header page={page} onNavigate={navigate} onScanRequest={handleHeaderScan} user={user} />{content}<Footer onNavigate={navigate} /></div>;
 }

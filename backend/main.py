@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,10 +14,10 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 try:
-    from backend.ml.predict import ModelNotReadyError, predict_url
+    from backend.ml.predict import ModelNotReadyError, load_artifact, predict_url
     from backend.supabase_service import save_scan_if_configured
 except ModuleNotFoundError:  # Supports running uvicorn from inside backend/.
-    from ml.predict import ModelNotReadyError, predict_url
+    from ml.predict import ModelNotReadyError, load_artifact, predict_url
     from supabase_service import save_scan_if_configured
 
 
@@ -48,6 +49,8 @@ class PredictResponse(BaseModel):
     prediction: str
     confidence: float
     risk_score: int
+    assessment: str
+    calibration_note: str
     reasons: list[str]
     features: dict[str, float | int | str]
     created_at: str
@@ -65,14 +68,38 @@ def root() -> FileResponse | dict[str, str | bool]:
     }
 
 
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "30"))
+_rate_limit: dict[str, tuple[float, int]] = {}
+
+
+def _rate_limited(request: Request) -> bool:
+    now = time.monotonic()
+    client = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    window_start, count = _rate_limit.get(client, (now, 0))
+    if now - window_start >= RATE_LIMIT_WINDOW_SECONDS:
+        window_start, count = now, 0
+    count += 1
+    _rate_limit[client] = (window_start, count)
+    if len(_rate_limit) > 10_000:
+        _rate_limit.clear()
+    return count > RATE_LIMIT_MAX_REQUESTS
+
+
 @api_app.get("/health")
 def health() -> dict[str, str | bool]:
-    model_path = Path(os.getenv("MODEL_PATH", ROOT / "backend/ml/model/phishing_xgboost.pkl"))
-    return {"status": "ok", "model_ready": model_path.exists()}
+    try:
+        load_artifact()
+        model_ready = True
+    except ModelNotReadyError:
+        model_ready = False
+    return {"status": "ok" if model_ready else "degraded", "model_ready": model_ready}
 
 
 @api_app.post("/predict", response_model=PredictResponse)
-def predict(payload: PredictRequest) -> PredictResponse:
+def predict(payload: PredictRequest, request: Request) -> PredictResponse:
+    if _rate_limited(request):
+        raise HTTPException(status_code=429, detail="Too many scans. Please try again in a minute.", headers={"Retry-After": "60"})
     url = payload.url.strip()
     if not url:
         raise HTTPException(status_code=422, detail="URL cannot be empty.")

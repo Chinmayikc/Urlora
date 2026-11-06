@@ -1,0 +1,29 @@
+[
+  {
+    "url": "https://www.example.com/",
+    "expected": {
+      "url_length": 24,
+      "hostname_length": 15,
+      "path_length": 0,
+      "number_of_dots": 2,
+      "number_of_hyphens": 0,
+      "number_of_underscores": 0,
+      "number_of_digits": 0,
+      "number_of_special_characters": 0,
+      "number_of_subdirectories": 0,
+      "number_of_query_parameters": 0,
+      "number_of_fragments": 0,
+      "number_of_subdomains": 1,
+      "uses_https": 1,
+      "contains_ip_address": 0,
+      "contains_at_symbol": 0,
+      "contains_suspicious_symbol": 0,
+      "uses_url_shortener": 0,
+      "suspicious_keyword_count": 0,
+      "digit_ratio": 0,
+      "special_character_ratio": 0,
+      "known_safe_domain": 1,
+      "domain_reputation": "known-safe"
+    }
+  }
+]

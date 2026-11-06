@@ -19,6 +19,9 @@ python -m backend.ml.train_model data/processed/phiusiil_urls.csv --output backe
 ```
 
 The model uses only the raw URL column and Urlora's shared lexical feature
-extractor. It should be treated as a first-pass screening model, not a complete
-reputation or page-content detector. In particular, unseen short domains such as
-`example.com` can be misclassified by lexical-only features.
+extractor. It is exposed as a conservative `heuristic_only` assessment, not a
+complete reputation or page-content detector. A small curated set of well-known
+domains (`example.com`, GitHub, Python.org, NASA, Apple, BBC, and Mozilla) is
+reported as `known_safe_domain` to prevent obvious lexical false positives; this
+is not an allowlist guarantee. Query credentials and tokens are redacted before
+results are displayed or persisted.

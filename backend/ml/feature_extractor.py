@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 SUSPICIOUS_KEYWORDS = (
@@ -11,6 +11,13 @@ SUSPICIOUS_KEYWORDS = (
 )
 SHORTENER_HOSTS = {
     "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly", "rb.gy",
+}
+KNOWN_SAFE_DOMAINS = {
+    "apple.com", "bbc.com", "example.com", "github.com", "mozilla.org", "nasa.gov", "python.org",
+}
+SENSITIVE_QUERY_PARAMETERS = {
+    "access_token", "api_key", "apikey", "auth", "authorization", "client_secret", "code", "credential",
+    "jwt", "key", "password", "passwd", "pwd", "refresh_token", "secret", "session", "sso", "token",
 }
 SUSPICIOUS_SYMBOLS = set("@%$!?=;{}[]<>")
 FEATURE_NAMES = [
@@ -55,26 +62,53 @@ def _hostname_is_ip(hostname: str) -> int:
         return 0
 
 
-def extract_url_features(raw_url: str) -> dict[str, float | int]:
+def _is_known_safe_domain(hostname: str) -> bool:
+    hostname = hostname.lower().rstrip(".")
+    return any(hostname == domain or hostname.endswith(f".{domain}") for domain in KNOWN_SAFE_DOMAINS)
+
+
+def redact_url(raw_url: str) -> str:
+    """Remove credentials and common secret-bearing query values before persistence/display."""
+    url = raw_url.strip()
+    candidate = url if re.match(r"^[a-z][a-z\d+.-]*://", url, flags=re.IGNORECASE) else f"http://{url}"
+    parsed = urlsplit(candidate)
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    redacted_query = [
+        (key, "REDACTED" if key.lower() in SENSITIVE_QUERY_PARAMETERS else value)
+        for key, value in query
+    ]
+    fragment = "REDACTED" if parsed.fragment else ""
+    # Userinfo is never useful in scan history and can contain a password.
+    hostname = parsed.hostname or ""
+    port = f":{parsed.port}" if parsed.port else ""
+    netloc = f"{hostname}{port}"
+    redacted = urlunsplit((parsed.scheme, netloc, parsed.path, urlencode(redacted_query, doseq=True), fragment))
+    return redacted if re.match(r"^[a-z][a-z\d+.-]*://", url, flags=re.IGNORECASE) else redacted.removeprefix("http://")
+
+
+def extract_url_features(raw_url: str) -> dict[str, float | int | str]:
     """Extract the exact feature vector shared by training and prediction."""
     url = normalize_url(raw_url)
     candidate = url if re.match(r"^[a-z][a-z\d+.-]*://", url, flags=re.IGNORECASE) else f"http://{url}"
     parsed = urlsplit(candidate)
     hostname = parsed.hostname or ""
     lower_url = url.lower()
+    path = "" if parsed.path == "/" else parsed.path
+    known_safe = _is_known_safe_domain(hostname)
+    domain_reputation = "known-safe" if known_safe else ("high-risk" if _hostname_is_ip(hostname) or hostname.lower() in SHORTENER_HOSTS else "unknown")
     characters = max(len(url), 1)
     special_count = sum(character in SUSPICIOUS_SYMBOLS or not character.isalnum() and character not in ":/.-_" for character in url)
     subdomain_count = max(0, len(hostname.split(".")) - 2) if not _hostname_is_ip(hostname) else 0
     return {
         "url_length": len(url),
         "hostname_length": len(hostname),
-        "path_length": len(parsed.path),
+        "path_length": len(path),
         "number_of_dots": url.count("."),
         "number_of_hyphens": url.count("-"),
         "number_of_underscores": url.count("_"),
         "number_of_digits": sum(character.isdigit() for character in url),
         "number_of_special_characters": special_count,
-        "number_of_subdirectories": len([part for part in parsed.path.split("/") if part]),
+        "number_of_subdirectories": len([part for part in path.split("/") if part]),
         "number_of_query_parameters": len(parse_qsl(parsed.query, keep_blank_values=True)),
         "number_of_fragments": int(bool(parsed.fragment)),
         "number_of_subdomains": subdomain_count,
@@ -86,6 +120,8 @@ def extract_url_features(raw_url: str) -> dict[str, float | int]:
         "suspicious_keyword_count": sum(keyword in lower_url for keyword in SUSPICIOUS_KEYWORDS),
         "digit_ratio": sum(character.isdigit() for character in url) / characters,
         "special_character_ratio": special_count / characters,
+        "known_safe_domain": int(known_safe),
+        "domain_reputation": domain_reputation,
     }
 
 
@@ -108,4 +144,6 @@ def explain_url_features(features: dict[str, float | int]) -> list[str]:
         reasons.append("Multiple subdomains detected")
     if features["contains_suspicious_symbol"]:
         reasons.append("Suspicious URL symbol pattern detected")
+    if features.get("known_safe_domain"):
+        reasons.append("Hostname matches a small curated safe-domain list; this is not a guarantee")
     return reasons or ["No high-signal lexical warning was found"]

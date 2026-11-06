@@ -11,7 +11,7 @@ npm run dev
 
 Open the Vite address shown in the terminal, usually `http://localhost:5173`.
 
-The React frontend calls the FastAPI backend for predictions. The model stays on the server; the browser never receives the XGBoost artifact. Demo authentication and scan history are still stored in localStorage until Supabase Auth and the `url_scans` table are configured.
+The React frontend calls the FastAPI backend for predictions. The model stays on the server; the browser never receives the XGBoost artifact. The local account flow validates an 8-character password and stores only a salted hash; use Supabase Auth or another identity provider for production. Scan history is namespaced by user id and is cleared from the active session on sign-out.
 
 For a deployed frontend, `VITE_API_URL` must point to a reachable deployed FastAPI service. Leaving it blank or pointing it at `localhost` from Vercel cannot work because `localhost` means the visitor's own computer. The API also requires a real trained artifact at `MODEL_PATH`; the repository intentionally does not include one.
 
@@ -70,8 +70,16 @@ uvicorn backend.main:api_app --reload --port 8000
 
 Endpoints:
 
-- `GET /health` reports API status and whether the model artifact exists.
+- `GET /health` reports API status and whether the model artifact can actually be loaded.
 - `POST /predict` accepts `{ "url": "https://example.com" }` and returns `prediction`, `confidence`, `risk_score`, `reasons`, and extracted features.
+
+Predictions include an `assessment` field. Unknown domains are explicitly
+`heuristic_only`, with a conservative risk/confidence cap, while a small curated
+set of known-safe domains is marked `known_safe_domain`. The runtime and Python
+extractor share golden fixtures, including the rule that a root `/` path has zero
+path length. Both API deployments apply a basic per-client rate limit. Sensitive
+query values, fragments, and URL userinfo are redacted before persistence or
+display.
 
 Until the artifact exists, `/predict` returns HTTP 503 with instructions to train the model. Invalid, empty, non-HTTP(S), whitespace-containing, or overlong URLs return a validation error. Urlora never visits or downloads from a submitted URL.
 
@@ -142,4 +150,4 @@ The Streamlit app now includes:
 - User Dashboard with session scan history, statistics, and CSV export
 - About / How it works page explaining the feature pipeline and product boundaries
 
-The React demo account is intentionally not authentication: it accepts any password and stores only a profile in localStorage. Add Supabase Auth, pass a verified Supabase user ID from a server-validated token, and add authenticated read policies before using account history in production.
+The React account flow is browser-local rather than production identity management: it requires an 8-character password, stores a salted PBKDF2 hash instead of the password, uses session storage for the active login, and namespaces scan history by account id. Add Supabase Auth, pass a verified Supabase user ID from a server-validated token, and add authenticated read policies before using account history in production.

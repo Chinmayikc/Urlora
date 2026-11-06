@@ -13,6 +13,8 @@ const suspiciousKeywords = [
 ];
 const shortenerHosts = new Set(['bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'cutt.ly', 'rb.gy']);
 const suspiciousSymbols = new Set(['@', '%', '$', '!', '?', '=', ';', '{', '}', '[', ']', '<', '>']);
+const knownSafeDomains = new Set(['apple.com', 'bbc.com', 'example.com', 'github.com', 'mozilla.org', 'nasa.gov', 'python.org']);
+const sensitiveQueryParameters = new Set(['access_token', 'api_key', 'apikey', 'auth', 'authorization', 'client_secret', 'code', 'credential', 'jwt', 'key', 'password', 'passwd', 'pwd', 'refresh_token', 'secret', 'session', 'sso', 'token']);
 
 function normalizeUrl(rawUrl) {
   if (typeof rawUrl !== 'string' || !rawUrl.trim()) throw new Error('URL cannot be empty.');
@@ -28,6 +30,28 @@ function normalizeUrl(rawUrl) {
   return { url, parsed };
 }
 
+function isKnownSafeDomain(hostname) {
+  const value = hostname.toLowerCase().replace(/\.$/, '');
+  return [...knownSafeDomains].some((domain) => value === domain || value.endsWith(`.${domain}`));
+}
+
+function redactUrl(rawUrl) {
+  const { url, parsed } = normalizeUrl(rawUrl);
+  const params = new URLSearchParams(parsed.search);
+  for (const key of params.keys()) {
+    if (sensitiveQueryParameters.has(key.toLowerCase())) params.set(key, 'REDACTED');
+  }
+  const safeHost = parsed.hostname + (parsed.port ? `:${parsed.port}` : '');
+  const redacted = new URL(parsed.toString());
+  redacted.username = '';
+  redacted.password = '';
+  redacted.host = safeHost;
+  redacted.search = params.toString() ? `?${params.toString()}` : '';
+  if (redacted.hash) redacted.hash = '#REDACTED';
+  const output = redacted.toString();
+  return /^[a-z][a-z\d+.-]*:\/\//i.test(url) ? output : output.replace(/^http:\/\//i, '');
+}
+
 function extractFeatures(rawUrl) {
   const { url, parsed } = normalizeUrl(rawUrl);
   const hostname = parsed.hostname || '';
@@ -37,6 +61,7 @@ function extractFeatures(rawUrl) {
   const specialCount = chars.filter((character) => suspiciousSymbols.has(character) || (!/[A-Za-z0-9]/.test(character) && !':/.-_'.includes(character))).length;
   const subdomainCount = isIP(hostname) ? 0 : Math.max(0, hostname.split('.').length - 2);
   const queryParameters = parsed.search ? Array.from(new URLSearchParams(parsed.search)).length : 0;
+  const knownSafe = isKnownSafeDomain(hostname);
   const values = {
     url_length: chars.length,
     hostname_length: Array.from(hostname).length,
@@ -58,6 +83,8 @@ function extractFeatures(rawUrl) {
     suspicious_keyword_count: suspiciousKeywords.filter((word) => lowerUrl.includes(word)).length,
     digit_ratio: (url.match(/\d/g) || []).length / Math.max(chars.length, 1),
     special_character_ratio: specialCount / Math.max(chars.length, 1),
+    known_safe_domain: knownSafe ? 1 : 0,
+    domain_reputation: knownSafe ? 'known-safe' : (isIP(hostname) || shortenerHosts.has(hostname.toLowerCase()) ? 'high-risk' : 'unknown'),
   };
   return { url, values };
 }
@@ -72,6 +99,7 @@ function explain(features) {
   if (features.url_length > 75) reasons.push('Unusually long URL');
   if (features.number_of_subdomains >= 3) reasons.push('Multiple subdomains detected');
   if (features.contains_suspicious_symbol) reasons.push('Suspicious URL symbol pattern detected');
+  if (features.known_safe_domain) reasons.push('Hostname matches a small curated safe-domain list; this is not a guarantee');
   return reasons.length ? reasons : ['No high-signal lexical warning was found'];
 }
 
@@ -95,16 +123,25 @@ function predictUrl(rawUrl) {
   let margin = Math.log(baseScore / (1 - baseScore));
   for (const tree of trees) margin += treeScore(tree, vector);
   const probability = 1 / (1 + Math.exp(-margin));
-  const phishing = probability >= 0.5;
+  const knownSafe = Boolean(values.known_safe_domain);
+  const phishing = probability >= 0.5 && !knownSafe;
+  const calibratedRisk = knownSafe ? 0.02 : Math.min(0.90, Math.max(0.10, 0.10 + (probability * 0.80)));
+  const confidence = knownSafe ? 0.75 : Math.min(0.85, Math.max(0.50, Math.max(probability, 1 - probability)));
   return {
-    url,
+    url: redactUrl(url),
     prediction: phishing ? 'Phishing' : 'Safe',
-    confidence: Number((phishing ? probability : 1 - probability).toFixed(4)),
-    risk_score: Math.round(probability * 100),
+    confidence: Number(confidence.toFixed(4)),
+    risk_score: Math.round(calibratedRisk * 100),
+    assessment: knownSafe ? 'known_safe_domain' : 'heuristic_only',
+    calibration_note: 'Lexical model only; domain reputation and page content were not verified.',
     reasons: explain(values),
     features: values,
     created_at: new Date().toISOString(),
   };
 }
 
-export { predictUrl };
+function isModelReady() {
+  return Array.isArray(featureNames) && featureNames.length > 0 && trees.length > 0;
+}
+
+export { extractFeatures, isModelReady, predictUrl, redactUrl };

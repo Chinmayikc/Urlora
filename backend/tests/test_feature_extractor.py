@@ -1,4 +1,6 @@
 import pytest
+import json
+from pathlib import Path
 
 from backend.ml.feature_extractor import extract_url_features
 
@@ -27,3 +29,22 @@ def test_long_special_character_url_is_supported():
     features = extract_url_features(url)
     assert features["url_length"] > 75
     assert features["contains_suspicious_symbol"] == 1
+
+
+def test_root_path_is_canonicalized_to_empty():
+    assert extract_url_features("https://www.example.com/")["path_length"] == 0
+
+
+@pytest.mark.parametrize("domain", ["example.com", "github.com", "python.org", "nasa.gov", "apple.com", "bbc.com", "mozilla.org"])
+def test_curated_safe_domains_are_marked_as_reputation_matches(domain):
+    features = extract_url_features(f"https://www.{domain}/")
+    assert features["known_safe_domain"] == 1
+    assert features["domain_reputation"] == "known-safe"
+
+
+def test_python_golden_features_match_shared_runtime_contract():
+    cases = json.loads((Path(__file__).with_name("feature_golden.json")).read_text(encoding="utf-8"))
+    for case in cases:
+        features = extract_url_features(case["url"])
+        for name, expected in case["expected"].items():
+            assert features[name] == expected, name
