@@ -1,8 +1,15 @@
 const configuredApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
 
 function getApiBaseUrl() {
-  if (configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)) return configuredApiUrl;
-  if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+  const isLocalFrontend = typeof window !== 'undefined'
+    && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const isLocalConfiguredApi = /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(configuredApiUrl);
+
+  // Never send a deployed visitor to their own computer. This also protects
+  // production builds if a local VITE_API_URL was accidentally retained.
+  if (configuredApiUrl && /^https?:\/\//i.test(configuredApiUrl)
+    && (isLocalFrontend || !isLocalConfiguredApi)) return configuredApiUrl;
+  if (typeof window !== 'undefined' && !isLocalFrontend) {
     return '/api';
   }
   return 'http://localhost:8000';
