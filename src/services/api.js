@@ -57,11 +57,12 @@ export async function predictUrl(url) {
 
 export function normalizePrediction(result) {
   const phishing = result.prediction === 'Phishing' || result.prediction === 1;
+  const review = result.prediction === 'Needs review' || result.prediction === 2;
   const assessment = result.assessment || 'heuristic_only';
   return {
     ...result,
-    prediction: phishing ? 1 : 0,
-    label: phishing ? 'PHISHING URL' : 'LIKELY SAFE',
+    prediction: phishing ? 1 : review ? 2 : 0,
+    label: phishing ? 'PHISHING URL' : review ? 'NEEDS REVIEW' : 'LIKELY SAFE',
     assessment,
     calibrationNote: result.calibration_note || 'Lexical model only; domain reputation and page content were not verified.',
     risk: typeof result.risk_score === 'number' ? result.risk_score / 100 : result.risk,

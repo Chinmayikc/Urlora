@@ -85,15 +85,15 @@ Endpoints:
 - `GET /health` reports API status and whether the model artifact can actually be loaded.
 - `POST /predict` accepts `{ "url": "https://example.com" }` and returns `prediction`, `confidence`, `risk_score`, `reasons`, and extracted features.
 
-Predictions include an `assessment` field. Unknown domains are explicitly
-`heuristic_only`, with a conservative risk/confidence cap, while a small curated
-set of known-safe domains is marked `known_safe_domain`. The runtime and Python
-extractor share golden fixtures, including the rule that a root `/` path has zero
-path length. Both API deployments apply a basic per-client rate limit. Sensitive
-query values, fragments, and URL userinfo are redacted before persistence or
-display.
+Predictions include an `assessment` field and a `verification` trace. A clean
+same-domain HTML page whose content matches the hostname is `verified_page`; a
+reputation or page-content warning is `verified_suspicious`; and failed or
+inconclusive checks are `needs_review`. The runtime and Python extractor share
+golden fixtures, including the rule that a root `/` path has zero path length.
+Both API deployments apply a basic per-client rate limit. Sensitive query
+values, fragments, and URL userinfo are redacted before persistence or display.
 
-Until the artifact exists, `/predict` returns HTTP 503 with instructions to train the model. Invalid, empty, non-HTTP(S), whitespace-containing, or overlong URLs return a validation error. Urlora never visits or downloads from a submitted URL.
+Until the artifact exists, `/predict` returns HTTP 503 with instructions to train the model. Invalid, empty, non-HTTP(S), whitespace-containing, or overlong URLs return a validation error. The production scanner performs a bounded server-side inspection of public HTTP(S) pages: it resolves and blocks private/local destinations, follows at most three redirects, reads at most 1 MB of HTML, and never submits forms or downloads executable content. If `GOOGLE_SAFE_BROWSING_API_KEY` is configured on the server, the scan also checks the URL against Google Safe Browsing. A failed or inconclusive verification is reported as `Needs review`, not `Safe`.
 
 ## Supabase
 

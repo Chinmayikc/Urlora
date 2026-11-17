@@ -1,4 +1,5 @@
 import { predictUrl } from './runtime.js';
+import { verifyUrl } from './verifier.js';
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 30;
@@ -23,7 +24,7 @@ function rateLimitExceeded(req) {
   return entry.count > MAX_REQUESTS;
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ detail: 'Method not allowed.' });
   if (rateLimitExceeded(req)) {
     res.setHeader('Retry-After', '60');
@@ -32,7 +33,8 @@ export default function handler(req, res) {
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     if (!payload || typeof payload.url !== 'string') return res.status(422).json({ detail: 'URL is required.' });
-    return res.status(200).json(predictUrl(payload.url));
+    const verification = await verifyUrl(payload.url);
+    return res.status(200).json(predictUrl(payload.url, verification));
   } catch (error) {
     const status = error instanceof SyntaxError || /URL|hostname|HTTP|whitespace|long/.test(error.message) ? 422 : 500;
     return res.status(status).json({ detail: error.message });

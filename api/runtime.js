@@ -118,7 +118,13 @@ function treeScore(tree, vector) {
   return tree.base_weights[node];
 }
 
-function predictUrl(rawUrl) {
+function hasHighSignal(features) {
+  return Boolean(features.contains_ip_address || features.contains_at_symbol || !features.uses_https
+    || features.uses_url_shortener || features.suspicious_keyword_count || features.url_length > 75
+    || features.number_of_subdomains >= 3 || features.contains_suspicious_symbol);
+}
+
+function predictUrl(rawUrl, verification = null) {
   const { url, values } = extractFeatures(rawUrl);
   const vector = featureNames.map((name) => values[name]);
   const rawBaseScore = learner.learner_model_param.base_score;
@@ -128,18 +134,46 @@ function predictUrl(rawUrl) {
   for (const tree of trees) margin += treeScore(tree, vector);
   const probability = 1 / (1 + Math.exp(-margin));
   const knownSafe = Boolean(values.known_safe_domain);
-  const phishing = probability >= 0.5 && !knownSafe;
-  const calibratedRisk = knownSafe ? 0.02 : Math.min(0.90, Math.max(0.10, 0.10 + (probability * 0.80)));
-  const confidence = knownSafe ? 0.75 : Math.min(0.85, Math.max(0.50, Math.max(probability, 1 - probability)));
+  const checked = verification || { status: 'not_run', domain_reputation: 'not_run', page_content: 'not_run', signals: ['Domain and page verification was not run.'] };
+  const verificationStatus = String(checked.status || 'unverified');
+  const highSignal = hasHighSignal(values);
+  const reputationMalicious = checked.domain_reputation === 'malicious' || verificationStatus === 'malicious';
+  const pageSuspicious = verificationStatus === 'suspicious' || checked.page_content === 'suspicious';
+  let prediction;
+  let assessment;
+  let calibratedRisk;
+  let confidence;
+  let calibrationNote;
+
+  if (reputationMalicious || pageSuspicious) {
+    prediction = 'Phishing'; assessment = 'verified_suspicious'; calibratedRisk = Math.max(0.80, Math.min(0.98, 0.10 + (probability * 0.80))); confidence = 0.90;
+    calibrationNote = 'Page content or the configured domain reputation provider produced a phishing signal.';
+  } else if (verificationStatus === 'verified' && !highSignal) {
+    prediction = 'Safe'; assessment = 'verified_page'; calibratedRisk = 0.05; confidence = 0.85;
+    calibrationNote = 'The public page was fetched over HTTP(S), stayed on the same domain, and its content matched the hostname.';
+  } else if (knownSafe && !reputationMalicious && !highSignal && ['not_run', 'verified'].includes(verificationStatus)) {
+    prediction = 'Safe'; assessment = 'known_safe_domain'; calibratedRisk = 0.02; confidence = 0.75;
+    calibrationNote = 'Hostname matches a small curated safe-domain list; live reputation and page content were not verified.';
+  } else if (probability >= 0.5 && highSignal) {
+    prediction = 'Phishing'; assessment = ['unverified', 'unavailable', 'blocked', 'not_run'].includes(verificationStatus) ? 'lexical_suspicious' : 'suspicious_signals'; calibratedRisk = Math.min(0.90, Math.max(0.10, 0.10 + (probability * 0.80))); confidence = Math.min(0.85, Math.max(0.50, Math.max(probability, 1 - probability)));
+    calibrationNote = 'Lexical indicators were found; domain reputation or page content was not sufficient to override them.';
+  } else if (['unverified', 'unavailable', 'blocked', 'not_run', 'inspected'].includes(verificationStatus)) {
+    prediction = 'Needs review'; assessment = 'needs_review'; calibratedRisk = Math.min(0.90, Math.max(0.10, 0.10 + (probability * 0.80))); confidence = Math.min(0.75, Math.max(0.50, Math.max(probability, 1 - probability)));
+    calibrationNote = 'Verification was inconclusive; do not treat this result as safe or enter credentials.';
+  } else {
+    prediction = 'Safe'; assessment = 'screened_safe'; calibratedRisk = Math.min(0.45, Math.max(0.05, 0.10 + (probability * 0.50))); confidence = Math.min(0.80, Math.max(0.50, Math.max(probability, 1 - probability)));
+    calibrationNote = 'URL structure and the available verification checks did not produce a phishing signal.';
+  }
   return {
     url: redactUrl(url),
-    prediction: phishing ? 'Phishing' : 'Safe',
+    prediction,
     confidence: Number(confidence.toFixed(4)),
     risk_score: Math.round(calibratedRisk * 100),
-    assessment: knownSafe ? 'known_safe_domain' : 'heuristic_only',
-    calibration_note: 'Lexical model only; domain reputation and page content were not verified.',
+    assessment,
+    calibration_note: calibrationNote,
     reasons: explain(values),
     features: values,
+    verification: checked,
     created_at: new Date().toISOString(),
   };
 }

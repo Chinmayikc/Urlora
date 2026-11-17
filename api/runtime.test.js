@@ -21,3 +21,15 @@ test('exported trained model is usable even without best_iteration metadata', ()
   assert.equal(phishing.prediction, 'Phishing');
   assert.equal(Number.isFinite(phishing.risk_score), true);
 });
+
+test('verified clean page can override a lexical false positive without changing the model artifact', () => {
+  const result = predictUrl('https://www.flipkart.com/', {
+    status: 'verified',
+    domain_reputation: 'not_configured',
+    page_content: 'verified',
+    signals: ['Page content was fetched and matched the hostname'],
+  });
+  assert.equal(result.prediction, 'Safe');
+  assert.equal(result.assessment, 'verified_page');
+  assert.equal(result.risk_score, 5);
+});

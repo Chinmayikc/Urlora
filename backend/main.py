@@ -15,9 +15,11 @@ from dotenv import load_dotenv
 
 try:
     from backend.ml.predict import ModelNotReadyError, load_artifact, predict_url
+    from backend.security.url_verifier import verify_url
     from backend.supabase_service import save_scan_if_configured
 except ModuleNotFoundError:  # Supports running uvicorn from inside backend/.
     from ml.predict import ModelNotReadyError, load_artifact, predict_url
+    from security.url_verifier import verify_url
     from supabase_service import save_scan_if_configured
 
 
@@ -53,6 +55,7 @@ class PredictResponse(BaseModel):
     calibration_note: str
     reasons: list[str]
     features: dict[str, float | int | str]
+    verification: dict[str, object]
     created_at: str
 
 
@@ -104,7 +107,8 @@ def predict(payload: PredictRequest, request: Request) -> PredictResponse:
     if not url:
         raise HTTPException(status_code=422, detail="URL cannot be empty.")
     try:
-        result = predict_url(url)
+        verification = verify_url(url)
+        result = predict_url(url, verification)
     except ModelNotReadyError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
